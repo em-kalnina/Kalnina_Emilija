@@ -26,6 +26,7 @@ class Database:
         self.cursor = self.conn.cursor()
 
 # Vēlmju saraksta klase, kas manto datubāzes klasi
+class Wishlist(Database):
     def __init__(self, host, user, password, database):
         super().__init__(host, user, password, database)
         self.create_tables()
@@ -458,7 +459,6 @@ class BookApp:
     def exit_app(self):
         self.root.quit()
 
-# Galvenā funkcija, kas inicializē datubāzi un palaiž lietotni
 def main():
     db_config = {
         "host": "db4free.net",           
