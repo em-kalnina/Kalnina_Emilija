@@ -5,6 +5,7 @@ import tkinter as tk
 from tkinter import messagebox
 from mysql.connector import Error, IntegrityError
 
+# Grāmatas klase, satur grāmatas nosaukumu un autoru
 class Book:
     def __init__(self, title, author):
         self.title = title
@@ -13,6 +14,7 @@ class Book:
     def __str__(self):
         return f"Nosaukums: {self.title}, Autors: {self.author}"
 
+# Datubāzes klase, kas nodrošina savienojumu ar MySQL datubāzi
 class Database:
     def __init__(self, host, user, password, database):
         self.conn = mysql.connector.connect(
@@ -23,11 +25,12 @@ class Database:
         )
         self.cursor = self.conn.cursor()
 
-class Wishlist(Database):
+# Vēlmju saraksta klase, kas manto datubāzes klasi
     def __init__(self, host, user, password, database):
         super().__init__(host, user, password, database)
         self.create_tables()
 
+    # Izveido nepieciešamās tabulas datubāzē
     def create_tables(self):
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
@@ -57,6 +60,7 @@ class Wishlist(Database):
         ''')
         self.conn.commit()
 
+    # Pievieno jaunu lietotāju datubāzē ar šifrētu paroli
     def add_user(self, username, password):
         try:
             hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
@@ -64,11 +68,13 @@ class Wishlist(Database):
             self.conn.commit()
             return True
         except IntegrityError:
+            # Lietotājvārds jau eksistē
             return False
         except Error as e:
             print(f"Datu bāzes kļūda pievienojot lietotāju: {e}")
             return False
 
+    # Autentificē lietotāju, pārbaudot ievadīto paroli
     def authenticate_user(self, username, password):
         self.cursor.execute('SELECT password FROM users WHERE username = %s', (username,))
         result = self.cursor.fetchone()
@@ -76,11 +82,13 @@ class Wishlist(Database):
             return True
         return False
 
+    #Atrod lietotāja ID pēc lietotājvārda
     def get_user_id(self, username):
         self.cursor.execute('SELECT id FROM users WHERE username = %s', (username,))
         result = self.cursor.fetchone()
         return result[0] if result else None
 
+    #Pievieno grāmatu lietotāja vēlmju sarakstā
     def add_book(self, user_id, book):
         try:
             self.cursor.execute('INSERT INTO wishlist (user_id, book_title, author_name) VALUES (%s, %s, %s)',
@@ -91,11 +99,13 @@ class Wishlist(Database):
             print(f"Kļūda pievienojot grāmatu: {e}")
             return False
 
+    #Iegūst visas grāmatas no lietotāja vēlmju saraksta
     def view_wishlist(self, user_id):
         self.cursor.execute('SELECT book_title, author_name FROM wishlist WHERE user_id = %s', (user_id,))
         wishlist_items = self.cursor.fetchall()
         return [f"Nosaukums: {title}, Autors: {author}" for title, author in wishlist_items] if wishlist_items else ["Jūsu vēlmju saraksts ir tukšs."]
 
+    #Noņem grāmatu no lietotāja vēlmju saraksta
     def remove_book(self, user_id, book_title, author_name):
         self.cursor.execute('DELETE FROM wishlist WHERE user_id = %s AND book_title = %s AND author_name = %s',
                             (user_id, book_title, author_name))
@@ -105,11 +115,13 @@ class Wishlist(Database):
         else:
             return "Nav atrasta atbilstoša grāmata jūsu vēlmju sarakstā."
 
+    #Pievieno lietotāja atsauksmi par grāmatu
     def add_review(self, user_id, book_title, author_name, review):
         self.cursor.execute('INSERT INTO reviews (user_id, book_title, author_name, review) VALUES (%s, %s, %s, %s)',
                             (user_id, book_title, author_name, review))
         self.conn.commit()
 
+    #Iegūst visas atsauksmes par konkrētu grāmatu
     def view_reviews(self, book_title, author_name):
         self.cursor.execute('''
             SELECT u.username, r.review FROM reviews r 
@@ -119,6 +131,7 @@ class Wishlist(Database):
         reviews = self.cursor.fetchall()
         return [f"{username}: {review}" for username, review in reviews] if reviews else ["Par šo grāmatu vēl nav atsauksmju."]
 
+#Bibliotēkas klase, kas nodrošina grāmatu meklēšanu no OpenLibrary API
 class Library:
     @staticmethod
     def search_books(query, by="title"):
@@ -130,6 +143,7 @@ class Library:
                          book.get('author_name', ['Nezināms'])[0]) for book in books]
         return []
 
+# Galvenā lietotāja interfeisa klase, kas izmanto tkinter
 class BookApp:
     def __init__(self, root, wishlist):
         self.root = root
@@ -146,6 +160,7 @@ class BookApp:
 
         self.create_main_widgets()
 
+    #Izveido sākuma izvēlni ar pogām "Ielogoties" un "Reģistrēties"
     def create_main_widgets(self):
         self.clear_main_frame()
         self.title_label = tk.Label(self.main_frame, text="Grāmatu Meistars", font=("Arial", 20), bg='#ffe6f0')
@@ -157,6 +172,7 @@ class BookApp:
         self.register_button = tk.Button(self.main_frame, text="Reģistrēties", width=15, command=self.show_register, bg='#ff8fa6', relief='solid')
         self.register_button.grid(row=1, column=1, padx=10)
 
+    #Rāda pieteikšanās logu
     def show_login(self):
         self.clear_main_frame()
         self.login_label = tk.Label(self.main_frame, text="Lietotājvārds:", bg='#ffe6f0')
@@ -175,6 +191,7 @@ class BookApp:
         self.back_button = tk.Button(self.main_frame, text="Atpakaļ", command=self.create_main_widgets, bg='#ff8fa6', relief='solid')
         self.back_button.grid(row=3, columnspan=2, pady=5)
 
+    #Rāda reģistrācijas logu
     def show_register(self):
         self.clear_main_frame()
         self.register_label = tk.Label(self.main_frame, text="Lietotājvārds:", bg='#ffe6f0')
@@ -193,6 +210,7 @@ class BookApp:
         self.back_button = tk.Button(self.main_frame, text="Atpakaļ", command=self.create_main_widgets, bg='#ff8fa6', relief='solid')
         self.back_button.grid(row=3, columnspan=2, pady=5)
 
+    #Apstrādā pieteikšanos
     def login_user(self):
         username = self.username_entry.get()
         password = self.password_entry.get()
@@ -204,6 +222,7 @@ class BookApp:
         else:
             messagebox.showerror("Neizdevās ielogoties", "Nepareizs lietotājvārds vai parole.")
 
+    #Apstrādā reģistrāciju
     def register_user(self):
         username = self.register_username_entry.get()
         password = self.register_password_entry.get()
@@ -218,6 +237,7 @@ class BookApp:
         else:
             messagebox.showerror("Kļūda", "Lūdzu, aizpildiet visus laukus.")
 
+    #Rāda galveno izvēlni pēc pieteikšanās
     def show_user_options(self):
         self.clear_main_frame()
         self.option1 = tk.Button(self.main_frame, text="Pievienot grāmatu vēlmju sarakstam", command=self.add_book, bg='#ff8fa6', relief='solid')
@@ -235,6 +255,7 @@ class BookApp:
         self.logout_button = tk.Button(self.main_frame, text="Iziet", command=self.logout_user, bg='#ff8fa6', relief='solid')
         self.logout_button.grid(row=4, column=0, pady=10)
 
+    #Rāda grāmatu meklēšanas un pievienošanas logu
     def add_book(self):
         self.clear_main_frame()
 
@@ -264,6 +285,7 @@ class BookApp:
 
         self.search_results = []
 
+    #Meklē grāmatas OpenLibrary API un attēlo rezultātus sarakstā
     def search_books(self):
         query = self.search_entry.get().strip()
         by = self.search_by_var.get()
@@ -281,6 +303,7 @@ class BookApp:
         else:
             self.books_listbox.insert(tk.END, "Nav atrastas grāmatas.")
 
+    #Pievieno izvēlēto grāmatu lietotāja vēlmju sarakstā
     def add_selected_book(self):
         try:
             selected_index = self.books_listbox.curselection()
@@ -298,6 +321,7 @@ class BookApp:
         except Exception as e:
             messagebox.showerror("Kļūda", f"Radās problēma: {e}")
 
+    #Rāda lietotāja vēlmju sarakstu
     def view_wishlist(self):
         self.clear_main_frame()
         wishlist_items = self.wishlist.view_wishlist(self.user_id)
@@ -316,6 +340,7 @@ class BookApp:
         self.back_button = tk.Button(self.main_frame, text="Atpakaļ", command=self.show_user_options, bg='#ff8fa6', relief='solid')
         self.back_button.pack()
 
+    #Noņem izvēlēto grāmatu no lietotāja vēlmju saraksta
     def remove_selected_book(self):
         try:
             selected_index = self.wishlist_listbox.curselection()
@@ -337,6 +362,7 @@ class BookApp:
         except Exception as e:
             messagebox.showerror("Kļūda", f"Radās problēma: {e}")
 
+    #Rāda atsauksmju pievienošanas logu
     def add_review(self):
         self.clear_main_frame()
         self.review_label = tk.Label(self.main_frame, text="Atsauksme par grāmatu", font=("Arial", 14), bg='#ffe6f0')
@@ -363,6 +389,7 @@ class BookApp:
         self.back_button = tk.Button(self.main_frame, text="Atpakaļ", command=self.show_user_options, bg='#ff8fa6', relief='solid')
         self.back_button.grid(row=5, column=0, columnspan=2)
 
+    #Pievieno atsauksmi datubāzē
     def submit_review(self):
         book_title = self.book_title_entry.get().strip()
         author_name = self.author_entry.get().strip()
@@ -376,6 +403,7 @@ class BookApp:
         messagebox.showinfo("Veiksmīgi", "Atsauksme ir pievienota.")
         self.show_user_options()
 
+    #Rāda atsauksmju skatīšanas logu
     def view_reviews(self):
         self.clear_main_frame()
         self.view_review_label = tk.Label(self.main_frame, text="Skatīt atsauksmes par grāmatu", font=("Arial", 14), bg='#ffe6f0')
@@ -400,6 +428,7 @@ class BookApp:
         self.back_button = tk.Button(self.main_frame, text="Atpakaļ", command=self.show_user_options, bg='#ff8fa6', relief='solid')
         self.back_button.grid(row=5, column=0, columnspan=2, pady=5)
 
+    #Iegūst un attēlo atsauksmes par grāmatu
     def display_reviews(self):
         book_title = self.book_title_entry.get().strip()
         author_name = self.author_entry.get().strip()
@@ -414,18 +443,22 @@ class BookApp:
         for review in reviews:
             self.reviews_listbox.insert(tk.END, review)
 
+    #Iziet no lietotāja konta un atgriežas sākuma izvēlnē
     def logout_user(self):
         self.user_id = None
         self.current_user = None
         self.create_main_widgets()
 
+    #Notīra galveno logu no visiem esošajiem elementiem
     def clear_main_frame(self):
         for widget in self.main_frame.winfo_children():
             widget.destroy()
 
+    #Iziet no lietotnes
     def exit_app(self):
         self.root.quit()
 
+# Galvenā funkcija, kas inicializē datubāzi un palaiž lietotni
 def main():
     db_config = {
         "host": "db4free.net",           
